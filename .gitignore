@@ -14,5 +14,4 @@
 /captures
 .externalNativeBuild
 .cxx
-local.properties
-*.apk
+!widget_timetable_app.apk

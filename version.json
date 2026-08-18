@@ -2,7 +2,7 @@
   "versionCode": 3,
   "versionName": "1.2",
   "minSupportedVersionCode": 1,
-  "apkUrl": "https://github.com/void3001/kpr-widget-/raw/main/widget_timetable_app.apk",
+  "apkUrl": "https://raw.githubusercontent.com/void3001/kpr-widget-/main/widget_timetable_app.apk",
   "releaseDate": "2026-08-18",
   "changelog": [
     "- Clean white '+' icon without circular container",
