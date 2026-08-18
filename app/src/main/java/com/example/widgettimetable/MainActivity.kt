@@ -1,7 +1,9 @@
 package com.example.widgettimetable
 
 import android.Manifest
+import android.app.DatePickerDialog
 import android.app.PendingIntent
+import android.app.TimePickerDialog
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
@@ -1241,14 +1243,21 @@ fun AddAssignmentDialog(
     onDismiss: () -> Unit,
     onSave: (Assignment) -> Unit
 ) {
+    val context = LocalContext.current
+
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var priority by remember { mutableStateOf(Priority.MEDIUM) }
     var selectedSubjectCode by remember { mutableStateOf(initialSubject?.code ?: "U25ADG01") }
     var selectedSubjectName by remember { mutableStateOf(initialSubject?.name ?: "Digital Principles and Computer Org") }
 
-    // Quick due date selection
-    var daysFromNow by remember { mutableStateOf(1) } // Default tomorrow
+    // Date & Time states with custom month & period support
+    var selectedDate by remember { mutableStateOf(LocalDate.now(ZoneId.of("Asia/Kolkata")).plusDays(1)) }
+    var selectedTime by remember { mutableStateOf(LocalTime.of(17, 0)) }
+    var selectedPeriodName by remember { mutableStateOf<String?>(null) }
+
+    val dateFormatter = DateTimeFormatter.ofPattern("EEE, MMM dd, yyyy")
+    val timeFormatter = DateTimeFormatter.ofPattern("h:mm a")
 
     val uniqueSubjects = remember {
         val list = mutableListOf<Pair<String, String>>()
@@ -1265,16 +1274,17 @@ fun AddAssignmentDialog(
         list
     }
 
+    val periodSlots = remember {
+        TimetableData.timeSlots.filter { !it.isBreak }
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             Button(
                 onClick = {
                     val finalTitle = if (title.isBlank()) "Assignment for $selectedSubjectCode" else title.trim()
-                    val dueInstant = LocalDateTime.now(ZoneId.of("Asia/Kolkata"))
-                        .plusDays(daysFromNow.toLong())
-                        .withHour(17)
-                        .withMinute(0)
+                    val dueInstant = LocalDateTime.of(selectedDate, selectedTime)
                         .atZone(ZoneId.of("Asia/Kolkata"))
                         .toInstant()
                         .toEpochMilli()
@@ -1304,85 +1314,148 @@ fun AddAssignmentDialog(
             Text("Add Assignment", color = colorScheme.textPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
         },
         text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 480.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // Subject Picker Chips
-                Text("Select Subject:", color = colorScheme.textSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    items(uniqueSubjects) { item ->
-                        val isSelected = selectedSubjectCode == item.first
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isSelected) colorScheme.accentPrimary else colorScheme.surfaceVariant)
-                                .clickable {
-                                    selectedSubjectCode = item.first
-                                    selectedSubjectName = item.second
-                                }
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
-                        ) {
-                            Text(
-                                text = item.first,
-                                color = if (isSelected) Color.White else colorScheme.textSecondary,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                item {
+                    Text("Select Subject:", color = colorScheme.textSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items(uniqueSubjects) { item ->
+                            val isSelected = selectedSubjectCode == item.first
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (isSelected) colorScheme.accentPrimary else colorScheme.surfaceVariant)
+                                    .clickable {
+                                        selectedSubjectCode = item.first
+                                        selectedSubjectName = item.second
+                                    }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = item.first,
+                                    color = if (isSelected) Color.White else colorScheme.textSecondary,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }
 
                 // Title Input
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Assignment Title (e.g. Lab Record)") },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = colorScheme.textPrimary,
-                        unfocusedTextColor = colorScheme.textPrimary,
-                        focusedBorderColor = colorScheme.accentPrimary,
-                        unfocusedBorderColor = colorScheme.surfaceBorder
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
+                item {
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        label = { Text("Assignment Title (e.g. Lab Record)") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = colorScheme.textPrimary,
+                            unfocusedTextColor = colorScheme.textPrimary,
+                            focusedBorderColor = colorScheme.accentPrimary,
+                            unfocusedBorderColor = colorScheme.surfaceBorder
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
 
                 // Notes Input
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text("Description / Notes (Optional)") },
-                    maxLines = 2,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = colorScheme.textPrimary,
-                        unfocusedTextColor = colorScheme.textPrimary,
-                        focusedBorderColor = colorScheme.accentPrimary,
-                        unfocusedBorderColor = colorScheme.surfaceBorder
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
+                item {
+                    OutlinedTextField(
+                        value = description,
+                        onValueChange = { description = it },
+                        label = { Text("Description / Notes (Optional)") },
+                        maxLines = 2,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = colorScheme.textPrimary,
+                            unfocusedTextColor = colorScheme.textPrimary,
+                            focusedBorderColor = colorScheme.accentPrimary,
+                            unfocusedBorderColor = colorScheme.surfaceBorder
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
 
                 // Priority Selection
-                Text("Priority Level:", color = colorScheme.textSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Priority.values().forEach { p ->
-                        val isSelected = priority == p
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isSelected) Color(p.colorHex) else colorScheme.surfaceVariant)
-                                .clickable { priority = p }
-                                .padding(vertical = 8.dp),
-                            contentAlignment = Alignment.Center
+                item {
+                    Text("Priority Level:", color = colorScheme.textSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Priority.values().forEach { p ->
+                            val isSelected = priority == p
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (isSelected) Color(p.colorHex) else colorScheme.surfaceVariant)
+                                    .clickable { priority = p }
+                                    .padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = p.label,
+                                    color = if (isSelected) Color.White else Color(p.colorHex),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Due Date & Month Picker
+                item {
+                    Text("Due Date & Month:", color = colorScheme.textSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(colorScheme.surfaceVariant)
+                            .border(1.dp, colorScheme.surfaceBorder, RoundedCornerShape(12.dp))
+                            .clickable {
+                                DatePickerDialog(
+                                    context,
+                                    { _, year, month, dayOfMonth ->
+                                        selectedDate = LocalDate.of(year, month + 1, dayOfMonth)
+                                    },
+                                    selectedDate.year,
+                                    selectedDate.monthValue - 1,
+                                    selectedDate.dayOfMonth
+                                ).show()
+                            }
+                            .padding(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Column {
+                                Text(
+                                    text = selectedDate.format(dateFormatter),
+                                    color = colorScheme.textPrimary,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "Tap to pick any month / day",
+                                    color = colorScheme.textMuted,
+                                    fontSize = 11.sp
+                                )
+                            }
                             Text(
-                                text = p.label,
-                                color = if (isSelected) Color.White else Color(p.colorHex),
+                                text = "Select Date",
+                                color = colorScheme.accentPrimary,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -1390,28 +1463,83 @@ fun AddAssignmentDialog(
                     }
                 }
 
-                // Deadline Quick Selection
-                Text("Due Date:", color = colorScheme.textSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    listOf(1 to "Tomorrow", 3 to "In 3 Days", 7 to "Next Week").forEach { (days, label) ->
-                        val isSelected = daysFromNow == days
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isSelected) colorScheme.accentPrimary else colorScheme.surfaceVariant)
-                                .clickable { daysFromNow = days }
-                                .padding(vertical = 8.dp),
-                            contentAlignment = Alignment.Center
+                // Due Time & Specific Period Picker
+                item {
+                    Text("Due Time / Specific Period:", color = colorScheme.textSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Period Selection Chips
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    ) {
+                        items(periodSlots) { slot ->
+                            val isSelected = selectedPeriodName == slot.name && selectedTime == slot.startTime
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (isSelected) colorScheme.accentPrimary else colorScheme.surfaceVariant)
+                                    .clickable {
+                                        selectedTime = slot.startTime
+                                        selectedPeriodName = slot.name
+                                    }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = "${slot.name} (${slot.startTime.format(timeFormatter)})",
+                                    color = if (isSelected) Color.White else colorScheme.textSecondary,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+
+                    // Custom Time Button
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(colorScheme.surfaceVariant)
+                            .border(1.dp, colorScheme.surfaceBorder, RoundedCornerShape(12.dp))
+                            .clickable {
+                                TimePickerDialog(
+                                    context,
+                                    { _, hourOfDay, minute ->
+                                        selectedTime = LocalTime.of(hourOfDay, minute)
+                                        selectedPeriodName = null
+                                    },
+                                    selectedTime.hour,
+                                    selectedTime.minute,
+                                    false
+                                ).show()
+                            }
+                            .padding(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Column {
+                                val periodInfo = if (selectedPeriodName != null) " • $selectedPeriodName" else ""
+                                Text(
+                                    text = "${selectedTime.format(timeFormatter)}$periodInfo",
+                                    color = colorScheme.textPrimary,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "Tap to pick exact custom time",
+                                    color = colorScheme.textMuted,
+                                    fontSize = 11.sp
+                                )
+                            }
                             Text(
-                                text = label,
-                                color = if (isSelected) Color.White else colorScheme.textSecondary,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold
+                                text = "Change Time",
+                                color = colorScheme.accentPrimary,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
