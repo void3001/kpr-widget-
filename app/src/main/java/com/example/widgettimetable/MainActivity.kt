@@ -25,8 +25,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -57,9 +59,15 @@ import java.time.format.DateTimeFormatter
 
 class MainActivity : ComponentActivity() {
 
+    private var initialTab: NavigationTab = NavigationTab.TIMETABLE
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        if (intent?.getStringExtra("open_tab") == "assignments") {
+            initialTab = NavigationTab.ASSIGNMENTS
+        }
 
         val themePreferences = ThemePreferences(this)
         val assignmentRepo = AssignmentRepository(this)
@@ -92,6 +100,7 @@ class MainActivity : ComponentActivity() {
                 color = colorScheme.background
             ) {
                 MainAppScreen(
+                    initialTab = initialTab,
                     colorScheme = colorScheme,
                     currentThemeMode = currentThemeMode,
                     onThemeChange = { newMode ->
@@ -123,6 +132,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+    }
+
     override fun onResume() {
         super.onResume()
         // Send broadcast to update the home screen widget immediately
@@ -141,6 +155,7 @@ enum class NavigationTab(val title: String) {
 
 @Composable
 fun MainAppScreen(
+    initialTab: NavigationTab,
     colorScheme: AppColorScheme,
     currentThemeMode: ThemeMode,
     onThemeChange: (ThemeMode) -> Unit,
@@ -152,7 +167,7 @@ fun MainAppScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    var selectedTab by remember { mutableStateOf(NavigationTab.TIMETABLE) }
+    var selectedTab by remember { mutableStateOf(initialTab) }
     var assignments by remember { mutableStateOf(assignmentRepo.getAllAssignments()) }
     var showAddAssignmentDialog by remember { mutableStateOf(false) }
     var preselectedSubject by remember { mutableStateOf<Subject?>(null) }
@@ -1314,78 +1329,113 @@ fun AddAssignmentDialog(
             Text("Add Assignment", color = colorScheme.textPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
         },
         text = {
-            LazyColumn(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 480.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .heightIn(max = 480.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // Subject Picker Chips
-                item {
-                    Text("Select Subject:", color = colorScheme.textSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        items(uniqueSubjects) { item ->
-                            val isSelected = selectedSubjectCode == item.first
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(if (isSelected) colorScheme.accentPrimary else colorScheme.surfaceVariant)
-                                    .clickable {
-                                        selectedSubjectCode = item.first
-                                        selectedSubjectName = item.second
-                                    }
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Text(
-                                    text = item.first,
-                                    color = if (isSelected) Color.White else colorScheme.textSecondary,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                // If added directly from subject card (+), show fixed subject info banner (no picker list)
+                if (initialSubject != null) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(colorScheme.surfaceVariant)
+                            .border(1.dp, colorScheme.surfaceBorder, RoundedCornerShape(12.dp))
+                            .padding(horizontal = 12.dp, vertical = 10.dp)
+                    ) {
+                        Text(
+                            text = "Subject",
+                            color = colorScheme.textMuted,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = selectedSubjectCode,
+                                color = colorScheme.accentPrimary,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = selectedSubjectName,
+                                color = colorScheme.textPrimary,
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                } else {
+                    // Subject Picker Chips (Shown only when + New button is clicked)
+                    Column {
+                        Text("Select Subject:", color = colorScheme.textSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            items(uniqueSubjects) { item ->
+                                val isSelected = selectedSubjectCode == item.first
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(if (isSelected) colorScheme.accentPrimary else colorScheme.surfaceVariant)
+                                        .clickable {
+                                            selectedSubjectCode = item.first
+                                            selectedSubjectName = item.second
+                                        }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    Text(
+                                        text = item.first,
+                                        color = if (isSelected) Color.White else colorScheme.textSecondary,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
                     }
                 }
 
                 // Title Input
-                item {
-                    OutlinedTextField(
-                        value = title,
-                        onValueChange = { title = it },
-                        label = { Text("Assignment Title (e.g. Lab Record)") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = colorScheme.textPrimary,
-                            unfocusedTextColor = colorScheme.textPrimary,
-                            focusedBorderColor = colorScheme.accentPrimary,
-                            unfocusedBorderColor = colorScheme.surfaceBorder
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Assignment Title (e.g. Lab Record)") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = colorScheme.textPrimary,
+                        unfocusedTextColor = colorScheme.textPrimary,
+                        focusedBorderColor = colorScheme.accentPrimary,
+                        unfocusedBorderColor = colorScheme.surfaceBorder
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
 
                 // Notes Input
-                item {
-                    OutlinedTextField(
-                        value = description,
-                        onValueChange = { description = it },
-                        label = { Text("Description / Notes (Optional)") },
-                        maxLines = 2,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = colorScheme.textPrimary,
-                            unfocusedTextColor = colorScheme.textPrimary,
-                            focusedBorderColor = colorScheme.accentPrimary,
-                            unfocusedBorderColor = colorScheme.surfaceBorder
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Description / Notes (Optional)") },
+                    maxLines = 2,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = colorScheme.textPrimary,
+                        unfocusedTextColor = colorScheme.textPrimary,
+                        focusedBorderColor = colorScheme.accentPrimary,
+                        unfocusedBorderColor = colorScheme.surfaceBorder
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
 
                 // Priority Selection
-                item {
+                Column {
                     Text("Priority Level:", color = colorScheme.textSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1413,9 +1463,9 @@ fun AddAssignmentDialog(
                 }
 
                 // Due Date & Month Picker
-                item {
+                Column {
                     Text("Due Date & Month:", color = colorScheme.textSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1464,14 +1514,14 @@ fun AddAssignmentDialog(
                 }
 
                 // Due Time & Specific Period Picker
-                item {
+                Column {
                     Text("Due Time / Specific Period:", color = colorScheme.textSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     // Period Selection Chips
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.padding(bottom = 6.dp)
+                        modifier = Modifier.padding(bottom = 8.dp)
                     ) {
                         items(periodSlots) { slot ->
                             val isSelected = selectedPeriodName == slot.name && selectedTime == slot.startTime
