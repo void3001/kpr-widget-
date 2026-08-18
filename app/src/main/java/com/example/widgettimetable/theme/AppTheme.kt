@@ -4,8 +4,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
 enum class ThemeMode(val displayName: String, val subtitle: String) {
-    MAJESTIC_GREY("Majestic Grey", "Sleek slate with frosted glass accents"),
-    OLED_BLACK("OLED Black", "Deep true black with vibrant high contrast")
+    MAJESTIC_GREY("Navy Blue", "Sleek dark navy with frosted glass accents"),
+    OLED_BLACK("Infinite Contrast", "Deep true black with vibrant high contrast")
 }
 
 data class AppColorScheme(

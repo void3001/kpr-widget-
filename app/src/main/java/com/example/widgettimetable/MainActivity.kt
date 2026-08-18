@@ -64,6 +64,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             var currentThemeMode by remember { mutableStateOf(themePreferences.themeMode) }
+            var notificationsEnabled by remember { mutableStateOf(themePreferences.notificationsEnabled) }
             val colorScheme = TimetableColors.forMode(currentThemeMode)
 
             // Notifications permission launcher for Android 13+
@@ -94,6 +95,11 @@ class MainActivity : ComponentActivity() {
                     onThemeChange = { newMode ->
                         themePreferences.themeMode = newMode
                         currentThemeMode = newMode
+                    },
+                    notificationsEnabled = notificationsEnabled,
+                    onNotificationToggle = { enabled ->
+                        themePreferences.notificationsEnabled = enabled
+                        notificationsEnabled = enabled
                     },
                     assignmentRepo = assignmentRepo,
                     onAddWidgetClick = {
@@ -136,6 +142,8 @@ fun MainAppScreen(
     colorScheme: AppColorScheme,
     currentThemeMode: ThemeMode,
     onThemeChange: (ThemeMode) -> Unit,
+    notificationsEnabled: Boolean,
+    onNotificationToggle: (Boolean) -> Unit,
     assignmentRepo: AssignmentRepository,
     onAddWidgetClick: () -> Unit
 ) {
@@ -181,7 +189,6 @@ fun MainAppScreen(
                 NavigationTab.TIMETABLE -> {
                     TimetableScreen(
                         colorScheme = colorScheme,
-                        onAddWidgetClick = onAddWidgetClick,
                         onAddAssignmentClick = { subject ->
                             preselectedSubject = subject
                             showAddAssignmentDialog = true
@@ -211,6 +218,8 @@ fun MainAppScreen(
                         colorScheme = colorScheme,
                         currentThemeMode = currentThemeMode,
                         onThemeChange = onThemeChange,
+                        notificationsEnabled = notificationsEnabled,
+                        onNotificationToggle = onNotificationToggle,
                         onAddWidgetClick = onAddWidgetClick,
                         onCheckUpdateNow = {
                             coroutineScope.launch {
@@ -403,7 +412,6 @@ fun MainAppScreen(
 @Composable
 fun TimetableScreen(
     colorScheme: AppColorScheme,
-    onAddWidgetClick: () -> Unit,
     onAddAssignmentClick: (Subject?) -> Unit
 ) {
     var selectedDay by remember {
@@ -485,7 +493,7 @@ fun TimetableScreen(
                         "Current: ${currentActiveSlot.name} (${subject?.code ?: "Free"})"
                     }
                 } else {
-                    "No active class right now (IST)"
+                    "No active class right now"
                 }
                 Text(
                     text = statusText,
@@ -494,27 +502,6 @@ fun TimetableScreen(
                     fontWeight = FontWeight.Medium
                 )
             }
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // Add Widget Action Button
-        Button(
-            onClick = onAddWidgetClick,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = colorScheme.accentPrimary.copy(alpha = 0.85f)
-            ),
-            shape = RoundedCornerShape(14.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(46.dp)
-        ) {
-            Text(
-                text = "Add Widget to Home Screen",
-                color = Color.White,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold
-            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -662,7 +649,7 @@ fun PeriodCard(
                     )
                     Text(
                         text = subject.faculty,
-                        color = colorScheme.textMuted,
+                        color = colorScheme.textSecondary,
                         fontSize = 11.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -966,7 +953,7 @@ fun AssignmentCard(
 
                 // Due date chip
                 Text(
-                    text = if (isOverdue) "Overdue: $formattedDue" else "Due: $formattedDue (IST)",
+                    text = if (isOverdue) "Overdue: $formattedDue" else "Due: $formattedDue",
                     color = if (isOverdue) Color(0xFFEF4444) else colorScheme.textMuted,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium
@@ -993,6 +980,8 @@ fun SettingsScreen(
     colorScheme: AppColorScheme,
     currentThemeMode: ThemeMode,
     onThemeChange: (ThemeMode) -> Unit,
+    notificationsEnabled: Boolean,
+    onNotificationToggle: (Boolean) -> Unit,
     onAddWidgetClick: () -> Unit,
     onCheckUpdateNow: () -> Unit
 ) {
@@ -1074,6 +1063,58 @@ fun SettingsScreen(
                         colors = RadioButtonDefaults.colors(selectedColor = colorScheme.accentPrimary)
                     )
                 }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Notifications Settings Card
+        Text(
+            text = "NOTIFICATIONS",
+            color = colorScheme.accentPrimary,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
+                .background(colorScheme.surface)
+                .border(1.dp, colorScheme.surfaceBorder, RoundedCornerShape(18.dp))
+                .padding(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Assignment Reminders",
+                        color = colorScheme.textPrimary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Receive alerts before assignment due dates",
+                        color = colorScheme.textSecondary,
+                        fontSize = 11.sp
+                    )
+                }
+
+                Switch(
+                    checked = notificationsEnabled,
+                    onCheckedChange = { onNotificationToggle(it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = colorScheme.accentPrimary,
+                        uncheckedThumbColor = colorScheme.textMuted,
+                        uncheckedTrackColor = colorScheme.surfaceVariant
+                    )
+                )
             }
         }
 

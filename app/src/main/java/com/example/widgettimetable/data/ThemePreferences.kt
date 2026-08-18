@@ -19,4 +19,10 @@ class ThemePreferences(context: Context) {
         set(value) {
             prefs.edit().putString("theme_mode", value.name).apply()
         }
+
+    var notificationsEnabled: Boolean
+        get() = prefs.getBoolean("notifications_enabled", true)
+        set(value) {
+            prefs.edit().putBoolean("notifications_enabled", value).apply()
+        }
 }

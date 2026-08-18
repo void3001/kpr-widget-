@@ -22,6 +22,9 @@ class AssignmentReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != ACTION_REMIND_ASSIGNMENT) return
 
+        val themePreferences = com.example.widgettimetable.data.ThemePreferences(context)
+        if (!themePreferences.notificationsEnabled) return
+
         val title = intent.getStringExtra("title") ?: "Assignment Due Soon"
         val subjectCode = intent.getStringExtra("subject_code") ?: ""
         val subjectName = intent.getStringExtra("subject_name") ?: ""
