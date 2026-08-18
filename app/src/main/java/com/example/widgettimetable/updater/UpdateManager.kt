@@ -30,13 +30,13 @@ object UpdateManager {
     const val UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/void3001/kpr-widget-/main/version.json"
 
     val FALLBACK_CHANGELOG = listOf(
-        "✨ 12-Hour IST Time format on full app and widget",
-        "✨ OLED Black and Majestic Grey theme switching in Settings",
-        "✨ Quick '+' assignment creator on each period card",
-        "✨ Dedicated My Assignments dashboard with Priority filtering",
-        "✨ Real-time deadline notification alerts",
-        "✨ Native Home Screen widget with automatic exact sync",
-        "✨ In-App Over-The-Air (OTA) updater connected to GitHub Releases"
+        "- 12-Hour IST Time format on full app and widget",
+        "- OLED Black and Majestic Grey theme switching in Settings",
+        "- Quick '+' assignment creator on each period card",
+        "- Dedicated My Assignments dashboard with Priority filtering",
+        "- Real-time deadline notification alerts",
+        "- Native Home Screen widget with automatic exact sync",
+        "- In-App Over-The-Air (OTA) updater connected to GitHub Releases"
     )
 
     suspend fun checkRemoteUpdate(): Result<RemoteUpdateInfo?> = withContext(Dispatchers.IO) {

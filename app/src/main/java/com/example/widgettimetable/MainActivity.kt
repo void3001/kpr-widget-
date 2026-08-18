@@ -361,7 +361,7 @@ fun MainAppScreen(
                             colors = ButtonDefaults.buttonColors(containerColor = colorScheme.accentPrimary),
                             shape = RoundedCornerShape(10.dp)
                         ) {
-                            Text("🚀 Download & Install", color = Color.White, fontWeight = FontWeight.Bold)
+                            Text("Download & Install", color = Color.White, fontWeight = FontWeight.Bold)
                         }
                     }
                 },
@@ -510,7 +510,7 @@ fun TimetableScreen(
                 .height(46.dp)
         ) {
             Text(
-                text = "📌 Add Widget to Home Screen",
+                text = "Add Widget to Home Screen",
                 color = Color.White,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold
@@ -966,7 +966,7 @@ fun AssignmentCard(
 
                 // Due date chip
                 Text(
-                    text = if (isOverdue) "⚠️ Overdue: $formattedDue" else "⏳ Due: $formattedDue (IST)",
+                    text = if (isOverdue) "Overdue: $formattedDue" else "Due: $formattedDue (IST)",
                     color = if (isOverdue) Color(0xFFEF4444) else colorScheme.textMuted,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium
@@ -975,7 +975,7 @@ fun AssignmentCard(
 
             // Delete Action
             Text(
-                text = "✕",
+                text = "X",
                 color = colorScheme.textMuted,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
@@ -1110,7 +1110,7 @@ fun SettingsScreen(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Build ${UpdateManager.CURRENT_VERSION_CODE} • GitHub Releases",
+                        text = "Build ${UpdateManager.CURRENT_VERSION_CODE} - GitHub Releases",
                         color = Color(0xFF10B981),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium
@@ -1160,7 +1160,7 @@ fun SettingsScreen(
                 .border(1.dp, colorScheme.surfaceBorder, RoundedCornerShape(14.dp))
         ) {
             Text(
-                text = "📌 Pin Timetable Widget to Home Screen",
+                text = "Pin Timetable Widget to Home Screen",
                 color = colorScheme.textPrimary,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium

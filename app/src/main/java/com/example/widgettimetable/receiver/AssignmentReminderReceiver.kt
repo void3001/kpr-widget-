@@ -63,7 +63,7 @@ class AssignmentReminderReceiver : BroadcastReceiver() {
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("📌 $title ($priority Priority)")
+            .setContentTitle("$title ($priority Priority)")
             .setContentText(contentText)
             .setStyle(NotificationCompat.BigTextStyle().bigText("$contentText\nMake sure to complete and submit on time."))
             .setPriority(NotificationCompat.PRIORITY_HIGH)

@@ -5,12 +5,12 @@
   "apkUrl": "https://github.com/void3001/kpr-widget-/releases/download/v1.1/widget_timetable_app.apk",
   "releaseDate": "2026-08-18",
   "changelog": [
-    "✨ 12-Hour IST Time format on full app and widget",
-    "✨ OLED Black and Majestic Grey theme switching in Settings",
-    "✨ Quick '+' assignment creator on each period card",
-    "✨ Dedicated My Assignments dashboard with Priority filtering",
-    "✨ Real-time deadline notification alerts",
-    "✨ Native Home Screen widget with automatic exact sync",
-    "✨ In-App Over-The-Air (OTA) updater connected to GitHub Releases"
+    "- 12-Hour IST Time format on full app and widget",
+    "- OLED Black and Majestic Grey theme switching in Settings",
+    "- Quick '+' assignment creator on each period card",
+    "- Dedicated My Assignments dashboard with Priority filtering",
+    "- Real-time deadline notification alerts",
+    "- Native Home Screen widget with automatic exact sync",
+    "- In-App Over-The-Air (OTA) updater connected to GitHub Releases"
   ]
 }
