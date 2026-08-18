@@ -685,18 +685,15 @@ fun PeriodCard(
             if (!slot.isBreak && subject != null) {
                 Box(
                     modifier = Modifier
-                        .size(34.dp)
-                        .clip(CircleShape)
-                        .background(colorScheme.surfaceVariant)
-                        .border(1.dp, colorScheme.surfaceBorder, CircleShape)
-                        .clickable { onAddAssignmentClick() },
+                        .clickable { onAddAssignmentClick() }
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "+",
-                        color = colorScheme.accentPrimary,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Light
                     )
                 }
             }
