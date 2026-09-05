@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -43,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.widgettimetable.data.*
+import com.example.widgettimetable.receiver.AssignmentReminderReceiver
 import com.example.widgettimetable.theme.*
 import com.example.widgettimetable.updater.RemoteUpdateInfo
 import com.example.widgettimetable.updater.UpdateManager
@@ -71,6 +73,7 @@ class MainActivity : ComponentActivity() {
 
         val themePreferences = ThemePreferences(this)
         val assignmentRepo = AssignmentRepository(this)
+        val timetableRepo = TimetableRepository(this)
 
         setContent {
             var currentThemeMode by remember { mutableStateOf(themePreferences.themeMode) }
@@ -113,6 +116,7 @@ class MainActivity : ComponentActivity() {
                         notificationsEnabled = enabled
                     },
                     assignmentRepo = assignmentRepo,
+                    timetableRepo = timetableRepo,
                     onAddWidgetClick = {
                         val appWidgetManager = getSystemService(AppWidgetManager::class.java)
                         val myProvider = ComponentName(this@MainActivity, TimetableWidgetProvider::class.java)
@@ -162,6 +166,7 @@ fun MainAppScreen(
     notificationsEnabled: Boolean,
     onNotificationToggle: (Boolean) -> Unit,
     assignmentRepo: AssignmentRepository,
+    timetableRepo: TimetableRepository,
     onAddWidgetClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -170,7 +175,8 @@ fun MainAppScreen(
     var selectedTab by remember { mutableStateOf(initialTab) }
     var assignments by remember { mutableStateOf(assignmentRepo.getAllAssignments()) }
     var showAddAssignmentDialog by remember { mutableStateOf(false) }
-    var preselectedSubject by remember { mutableStateOf<Subject?>(null) }
+    var preselectedSubjectCode by remember { mutableStateOf<String?>(null) }
+    var preselectedSubjectName by remember { mutableStateOf<String?>(null) }
 
     // Remote OTA update states
     var remoteUpdateInfo by remember { mutableStateOf<RemoteUpdateInfo?>(null) }
@@ -206,8 +212,10 @@ fun MainAppScreen(
                 NavigationTab.TIMETABLE -> {
                     TimetableScreen(
                         colorScheme = colorScheme,
-                        onAddAssignmentClick = { subject ->
-                            preselectedSubject = subject
+                        timetableRepo = timetableRepo,
+                        onAddAssignmentClick = { code, name ->
+                            preselectedSubjectCode = code
+                            preselectedSubjectName = name
                             showAddAssignmentDialog = true
                         }
                     )
@@ -225,7 +233,8 @@ fun MainAppScreen(
                             refreshAssignments()
                         },
                         onAddClick = {
-                            preselectedSubject = null
+                            preselectedSubjectCode = null
+                            preselectedSubjectName = null
                             showAddAssignmentDialog = true
                         }
                     )
@@ -238,6 +247,23 @@ fun MainAppScreen(
                         notificationsEnabled = notificationsEnabled,
                         onNotificationToggle = onNotificationToggle,
                         onAddWidgetClick = onAddWidgetClick,
+                        onResetTimetable = {
+                            timetableRepo.resetToDefaults()
+                            Toast.makeText(context, "Timetable reset to college defaults", Toast.LENGTH_SHORT).show()
+                        },
+                        onTestNotification = {
+                            val intent = Intent(context, AssignmentReminderReceiver::class.java).apply {
+                                action = AssignmentReminderReceiver.ACTION_REMIND_ASSIGNMENT
+                                putExtra("title", "Test Assignment Reminder")
+                                putExtra("subject_code", "U25CSG18")
+                                putExtra("subject_name", "DBMS Lab")
+                                putExtra("priority", "HIGH")
+                                putExtra("assignment_id", "test_reminder_id")
+                                putExtra("is_advance", false)
+                            }
+                            context.sendBroadcast(intent)
+                            Toast.makeText(context, "Test notification alert dispatched!", Toast.LENGTH_SHORT).show()
+                        },
                         onCheckUpdateNow = {
                             coroutineScope.launch {
                                 Toast.makeText(context, "Checking for latest updates...", Toast.LENGTH_SHORT).show()
@@ -326,7 +352,8 @@ fun MainAppScreen(
         if (showAddAssignmentDialog) {
             AddAssignmentDialog(
                 colorScheme = colorScheme,
-                initialSubject = preselectedSubject,
+                initialSubjectCode = preselectedSubjectCode,
+                initialSubjectName = preselectedSubjectName,
                 onDismiss = { showAddAssignmentDialog = false },
                 onSave = { assignment ->
                     assignmentRepo.addAssignment(assignment)
@@ -429,7 +456,8 @@ fun MainAppScreen(
 @Composable
 fun TimetableScreen(
     colorScheme: AppColorScheme,
-    onAddAssignmentClick: (Subject?) -> Unit
+    timetableRepo: TimetableRepository,
+    onAddAssignmentClick: (String?, String?) -> Unit
 ) {
     var selectedDay by remember {
         val today = LocalDate.now(ZoneId.of("Asia/Kolkata")).dayOfWeek
@@ -445,7 +473,7 @@ fun TimetableScreen(
         mutableStateOf(dayName)
     }
 
-    val days = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
+    val days = TimetableRepository.DAYS
 
     var currentTime by remember { mutableStateOf(LocalTime.now(ZoneId.of("Asia/Kolkata"))) }
     var currentSystemDay by remember {
@@ -460,6 +488,16 @@ fun TimetableScreen(
                 else -> "Sunday"
             }
         )
+    }
+
+    // Dynamic Edit Mode state
+    var isEditMode by remember { mutableStateOf(false) }
+    var daySchedule by remember(selectedDay) { mutableStateOf(timetableRepo.getDaySchedule(selectedDay)) }
+    var showEditPeriodDialog by remember { mutableStateOf(false) }
+    var periodToEdit by remember { mutableStateOf<PeriodItem?>(null) }
+
+    fun refreshSchedule() {
+        daySchedule = timetableRepo.getDaySchedule(selectedDay)
     }
 
     LaunchedEffect(Unit) {
@@ -479,7 +517,7 @@ fun TimetableScreen(
         }
     }
 
-    val currentActiveSlot = TimetableData.getCurrentSlot(currentTime)
+    val currentActiveSlot = timetableRepo.getCurrentSlot(selectedDay, currentTime)
 
     Column(
         modifier = Modifier
@@ -487,13 +525,13 @@ fun TimetableScreen(
             .padding(top = 44.dp, start = 16.dp, end = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // App Header
+        // App Header with Edit Mode Action
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "Class Timetable",
                     color = colorScheme.textPrimary,
@@ -502,12 +540,11 @@ fun TimetableScreen(
                 )
                 val statusText = if (currentSystemDay == "Sunday") {
                     "Happy Sunday! No classes today"
-                } else if (currentActiveSlot != null) {
-                    val subject = TimetableData.getSubjectForSlot(currentSystemDay, currentActiveSlot)
+                } else if (currentActiveSlot != null && selectedDay == currentSystemDay) {
                     if (currentActiveSlot.isBreak) {
-                        "Current: ${currentActiveSlot.name}"
+                        "Current: ${currentActiveSlot.slotName}"
                     } else {
-                        "Current: ${currentActiveSlot.name} (${subject?.code ?: "Free"})"
+                        "Current: ${currentActiveSlot.slotName} (${if (currentActiveSlot.subjectCode.isNotEmpty()) currentActiveSlot.subjectCode else "Free"})"
                     }
                 } else {
                     "No active class right now"
@@ -519,9 +556,56 @@ fun TimetableScreen(
                     fontWeight = FontWeight.Medium
                 )
             }
+
+            // Edit Mode Toggle Button
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (isEditMode) Color(0xFF10B981) else colorScheme.surfaceVariant)
+                    .border(1.dp, if (isEditMode) Color(0xFF10B981) else colorScheme.surfaceBorder, RoundedCornerShape(12.dp))
+                    .clickable { isEditMode = !isEditMode }
+                    .padding(horizontal = 14.dp, vertical = 7.dp)
+            ) {
+                Text(
+                    text = if (isEditMode) "Done" else "Edit",
+                    color = if (isEditMode) Color.White else colorScheme.accentPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Edit Mode Action Bar (+ Add Period)
+        if (isEditMode) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Editing $selectedDay's schedule",
+                    color = colorScheme.textSecondary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+
+                Button(
+                    onClick = {
+                        periodToEdit = null
+                        showEditPeriodDialog = true
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = colorScheme.accentPrimary),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                ) {
+                    Text("+ Add Period", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
 
         // Day Selector Pills
         LazyRow(
@@ -544,7 +628,10 @@ fun TimetableScreen(
                             color = if (isCurrentSystemDay) colorScheme.accentSecondary else if (isSelected) colorScheme.pillActive else colorScheme.pillBorder,
                             shape = RoundedCornerShape(18.dp)
                         )
-                        .clickable { selectedDay = day }
+                        .clickable {
+                            selectedDay = day
+                            daySchedule = timetableRepo.getDaySchedule(day)
+                        }
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
                     Text(
@@ -559,36 +646,104 @@ fun TimetableScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // Timetable Period Rows
-        LazyColumn(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(bottom = 16.dp)
-        ) {
-            val slots = TimetableData.timeSlots
-            items(slots.size) { index ->
-                val slot = slots[index]
-                val isCurrentSlot = currentSystemDay == selectedDay && slot == currentActiveSlot
-                val subject = TimetableData.getSubjectForSlot(selectedDay, slot)
+        // Timetable Period Rows (Editable & Reorderable)
+        if (daySchedule.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "No periods scheduled for $selectedDay",
+                        color = colorScheme.textMuted,
+                        fontSize = 14.sp
+                    )
+                    if (isEditMode) {
+                        Button(
+                            onClick = {
+                                periodToEdit = null
+                                showEditPeriodDialog = true
+                            },
+                            modifier = Modifier.padding(top = 8.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = colorScheme.accentPrimary)
+                        ) {
+                            Text("+ Add First Period", color = Color.White)
+                        }
+                    }
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(bottom = 16.dp)
+            ) {
+                itemsIndexed(daySchedule, key = { _, item -> item.id }) { index, item ->
+                    val isCurrentSlot = currentSystemDay == selectedDay && item == currentActiveSlot
 
-                PeriodCard(
-                    colorScheme = colorScheme,
-                    slot = slot,
-                    subject = subject,
-                    isActive = isCurrentSlot,
-                    onAddAssignmentClick = { onAddAssignmentClick(subject) }
-                )
+                    PeriodCard(
+                        colorScheme = colorScheme,
+                        item = item,
+                        isActive = isCurrentSlot,
+                        isEditMode = isEditMode,
+                        canMoveUp = index > 0,
+                        canMoveDown = index < daySchedule.size - 1,
+                        onMoveUp = {
+                            timetableRepo.reorderPeriods(selectedDay, index, index - 1)
+                            refreshSchedule()
+                        },
+                        onMoveDown = {
+                            timetableRepo.reorderPeriods(selectedDay, index, index + 1)
+                            refreshSchedule()
+                        },
+                        onEditClick = {
+                            periodToEdit = item
+                            showEditPeriodDialog = true
+                        },
+                        onDeleteClick = {
+                            timetableRepo.deletePeriod(selectedDay, item.id)
+                            refreshSchedule()
+                        },
+                        onAddAssignmentClick = {
+                            onAddAssignmentClick(item.subjectCode, item.subjectName)
+                        }
+                    )
+                }
             }
         }
+    }
+
+    // Edit / Add Period Dialog
+    if (showEditPeriodDialog) {
+        EditPeriodDialog(
+            colorScheme = colorScheme,
+            existingItem = periodToEdit,
+            onDismiss = { showEditPeriodDialog = false },
+            onSave = { updatedItem ->
+                if (periodToEdit != null) {
+                    timetableRepo.updatePeriod(selectedDay, updatedItem)
+                } else {
+                    timetableRepo.addPeriod(selectedDay, updatedItem)
+                }
+                refreshSchedule()
+                showEditPeriodDialog = false
+            }
+        )
     }
 }
 
 @Composable
 fun PeriodCard(
     colorScheme: AppColorScheme,
-    slot: TimeSlot,
-    subject: Subject?,
+    item: PeriodItem,
     isActive: Boolean,
+    isEditMode: Boolean,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+    onEditClick: () -> Unit,
+    onDeleteClick: () -> Unit,
     onAddAssignmentClick: () -> Unit
 ) {
     Box(
@@ -609,16 +764,43 @@ fun PeriodCard(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Reorder Controls in Edit Mode
+            if (isEditMode) {
+                Column(
+                    modifier = Modifier.padding(end = 8.dp),
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "▲",
+                        color = if (canMoveUp) colorScheme.accentPrimary else colorScheme.textMuted.copy(alpha = 0.3f),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .clickable(enabled = canMoveUp) { onMoveUp() }
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                    )
+                    Text(
+                        text = "▼",
+                        color = if (canMoveDown) colorScheme.accentPrimary else colorScheme.textMuted.copy(alpha = 0.3f),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .clickable(enabled = canMoveDown) { onMoveDown() }
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
             // Time & Slot Name Column
             Column(modifier = Modifier.width(105.dp)) {
                 Text(
-                    text = slot.name,
+                    text = item.slotName,
                     color = colorScheme.textMuted,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = slot.formattedTime,
+                    text = item.formattedTime,
                     color = if (isActive) colorScheme.accentPrimary else colorScheme.textPrimary,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
@@ -638,9 +820,9 @@ fun PeriodCard(
 
             // Subject Info Column
             Column(modifier = Modifier.weight(1f)) {
-                if (slot.isBreak) {
+                if (item.isBreak) {
                     Text(
-                        text = slot.name,
+                        text = item.slotName,
                         color = colorScheme.textPrimary,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold
@@ -650,27 +832,31 @@ fun PeriodCard(
                         color = colorScheme.textMuted,
                         fontSize = 12.sp
                     )
-                } else if (subject != null) {
+                } else if (item.subjectCode.isNotEmpty() || item.subjectName.isNotEmpty()) {
                     Text(
-                        text = subject.code,
+                        text = if (item.subjectCode.isNotEmpty()) item.subjectCode else item.subjectName,
                         color = colorScheme.textPrimary,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
-                    Text(
-                        text = subject.name,
-                        color = colorScheme.textSecondary,
-                        fontSize = 12.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = subject.faculty,
-                        color = colorScheme.textSecondary,
-                        fontSize = 11.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    if (item.subjectName.isNotEmpty() && item.subjectName != item.subjectCode) {
+                        Text(
+                            text = item.subjectName,
+                            color = colorScheme.textSecondary,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    if (item.faculty.isNotEmpty()) {
+                        Text(
+                            text = item.faculty,
+                            color = colorScheme.textSecondary,
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 } else {
                     Text(
                         text = "Free Period",
@@ -681,24 +867,244 @@ fun PeriodCard(
                 }
             }
 
-            // Quick Add Assignment Button (+) for non-break periods
-            if (!slot.isBreak && subject != null) {
-                Box(
-                    modifier = Modifier
-                        .clickable { onAddAssignmentClick() }
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                    contentAlignment = Alignment.Center
+            // Right Actions: Edit/Delete in Edit Mode, or Clean White '+' in Normal View
+            if (isEditMode) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text(
-                        text = "+",
-                        color = Color.White,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Light
-                    )
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(colorScheme.surfaceVariant)
+                            .clickable { onEditClick() }
+                            .padding(horizontal = 8.dp, vertical = 5.dp)
+                    ) {
+                        Text("Edit", color = colorScheme.accentPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0x33EF4444))
+                            .clickable { onDeleteClick() }
+                            .padding(horizontal = 8.dp, vertical = 5.dp)
+                    ) {
+                        Text("Delete", color = Color(0xFFEF4444), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            } else {
+                if (!item.isBreak) {
+                    Box(
+                        modifier = Modifier
+                            .clickable { onAddAssignmentClick() }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "+",
+                            color = Color.White,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Light
+                        )
+                    }
                 }
             }
         }
     }
+}
+
+@Composable
+fun EditPeriodDialog(
+    colorScheme: AppColorScheme,
+    existingItem: PeriodItem?,
+    onDismiss: () -> Unit,
+    onSave: (PeriodItem) -> Unit
+) {
+    val context = LocalContext.current
+
+    var slotName by remember { mutableStateOf(existingItem?.slotName ?: "Period") }
+    var startTime by remember { mutableStateOf(existingItem?.startTime ?: LocalTime.of(8, 55)) }
+    var endTime by remember { mutableStateOf(existingItem?.endTime ?: LocalTime.of(9, 50)) }
+    var isBreak by remember { mutableStateOf(existingItem?.isBreak ?: false) }
+    var subjectCode by remember { mutableStateOf(existingItem?.subjectCode ?: "") }
+    var subjectName by remember { mutableStateOf(existingItem?.subjectName ?: "") }
+    var faculty by remember { mutableStateOf(existingItem?.faculty ?: "") }
+
+    val timeFormatter = DateTimeFormatter.ofPattern("h:mm a")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            Button(
+                onClick = {
+                    val finalItem = PeriodItem(
+                        id = existingItem?.id ?: java.util.UUID.randomUUID().toString(),
+                        slotName = slotName.trim(),
+                        startTime = startTime,
+                        endTime = endTime,
+                        isBreak = isBreak,
+                        subjectCode = subjectCode.trim(),
+                        subjectName = subjectName.trim(),
+                        faculty = faculty.trim()
+                    )
+                    onSave(finalItem)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = colorScheme.accentPrimary),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text(if (existingItem != null) "Save Changes" else "Add Period", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = colorScheme.textSecondary)
+            }
+        },
+        title = {
+            Text(
+                text = if (existingItem != null) "Edit Period" else "Add New Period",
+                color = colorScheme.textPrimary,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 480.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Slot Name
+                OutlinedTextField(
+                    value = slotName,
+                    onValueChange = { slotName = it },
+                    label = { Text("Slot Name (e.g. Period 1, Mentor Hour)") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = colorScheme.textPrimary,
+                        unfocusedTextColor = colorScheme.textPrimary,
+                        focusedBorderColor = colorScheme.accentPrimary,
+                        unfocusedBorderColor = colorScheme.surfaceBorder
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Time Pickers Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(colorScheme.surfaceVariant)
+                            .clickable {
+                                TimePickerDialog(
+                                    context,
+                                    { _, h, m -> startTime = LocalTime.of(h, m) },
+                                    startTime.hour,
+                                    startTime.minute,
+                                    false
+                                ).show()
+                            }
+                            .padding(10.dp)
+                    ) {
+                        Column {
+                            Text("Start Time", color = colorScheme.textMuted, fontSize = 10.sp)
+                            Text(startTime.format(timeFormatter), color = colorScheme.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(colorScheme.surfaceVariant)
+                            .clickable {
+                                TimePickerDialog(
+                                    context,
+                                    { _, h, m -> endTime = LocalTime.of(h, m) },
+                                    endTime.hour,
+                                    endTime.minute,
+                                    false
+                                ).show()
+                            }
+                            .padding(10.dp)
+                    ) {
+                        Column {
+                            Text("End Time", color = colorScheme.textMuted, fontSize = 10.sp)
+                            Text(endTime.format(timeFormatter), color = colorScheme.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                // Break Checkbox
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable { isBreak = !isBreak }
+                ) {
+                    Checkbox(
+                        checked = isBreak,
+                        onCheckedChange = { isBreak = it },
+                        colors = CheckboxDefaults.colors(checkedColor = colorScheme.accentPrimary)
+                    )
+                    Text("This slot is a Break (e.g. Tea / Lunch)", color = colorScheme.textPrimary, fontSize = 12.sp)
+                }
+
+                if (!isBreak) {
+                    // Subject Code
+                    OutlinedTextField(
+                        value = subjectCode,
+                        onValueChange = { subjectCode = it },
+                        label = { Text("Subject Code (e.g. U25CSG18)") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = colorScheme.textPrimary,
+                            unfocusedTextColor = colorScheme.textPrimary,
+                            focusedBorderColor = colorScheme.accentPrimary,
+                            unfocusedBorderColor = colorScheme.surfaceBorder
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    // Subject Name
+                    OutlinedTextField(
+                        value = subjectName,
+                        onValueChange = { subjectName = it },
+                        label = { Text("Subject Name (e.g. DBMS Lab)") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = colorScheme.textPrimary,
+                            unfocusedTextColor = colorScheme.textPrimary,
+                            focusedBorderColor = colorScheme.accentPrimary,
+                            unfocusedBorderColor = colorScheme.surfaceBorder
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    // Faculty Name
+                    OutlinedTextField(
+                        value = faculty,
+                        onValueChange = { faculty = it },
+                        label = { Text("Faculty / Instructor Name") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = colorScheme.textPrimary,
+                            unfocusedTextColor = colorScheme.textPrimary,
+                            focusedBorderColor = colorScheme.accentPrimary,
+                            unfocusedBorderColor = colorScheme.surfaceBorder
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        },
+        containerColor = colorScheme.surface,
+        shape = RoundedCornerShape(18.dp)
+    )
 }
 
 @Composable
@@ -997,6 +1403,8 @@ fun SettingsScreen(
     notificationsEnabled: Boolean,
     onNotificationToggle: (Boolean) -> Unit,
     onAddWidgetClick: () -> Unit,
+    onResetTimetable: () -> Unit,
+    onTestNotification: () -> Unit,
     onCheckUpdateNow: () -> Unit
 ) {
     var showChangelogDialog by remember { mutableStateOf(false) }
@@ -1005,6 +1413,7 @@ fun SettingsScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(top = 44.dp, start = 16.dp, end = 16.dp)
+            .verticalScroll(rememberScrollState())
     ) {
         Text(
             text = "Settings",
@@ -1113,7 +1522,7 @@ fun SettingsScreen(
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "Receive alerts before assignment due dates",
+                        text = "Receive alerts before and at due dates",
                         color = colorScheme.textSecondary,
                         fontSize = 11.sp
                     )
@@ -1129,6 +1538,62 @@ fun SettingsScreen(
                         uncheckedTrackColor = colorScheme.surfaceVariant
                     )
                 )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Test Notification Alert Button
+            Button(
+                onClick = onTestNotification,
+                colors = ButtonDefaults.buttonColors(containerColor = colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Send Test Notification Alert", color = colorScheme.accentPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Timetable Management
+        Text(
+            text = "TIMETABLE DATA",
+            color = colorScheme.accentPrimary,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
+                .background(colorScheme.surface)
+                .border(1.dp, colorScheme.surfaceBorder, RoundedCornerShape(18.dp))
+                .padding(14.dp)
+        ) {
+            Text(
+                text = "Reset Timetable",
+                color = colorScheme.textPrimary,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = "Restore the default KPR college timetable schedule",
+                color = colorScheme.textSecondary,
+                fontSize = 11.sp
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Button(
+                onClick = onResetTimetable,
+                colors = ButtonDefaults.buttonColors(containerColor = colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Reset to College Defaults", color = Color(0xFFEF4444), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
         }
 
@@ -1221,6 +1686,8 @@ fun SettingsScreen(
                 fontWeight = FontWeight.Medium
             )
         }
+
+        Spacer(modifier = Modifier.height(20.dp))
     }
 
     // Changelog Dialog
@@ -1251,7 +1718,8 @@ fun SettingsScreen(
 @Composable
 fun AddAssignmentDialog(
     colorScheme: AppColorScheme,
-    initialSubject: Subject?,
+    initialSubjectCode: String?,
+    initialSubjectName: String?,
     onDismiss: () -> Unit,
     onSave: (Assignment) -> Unit
 ) {
@@ -1260,8 +1728,8 @@ fun AddAssignmentDialog(
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var priority by remember { mutableStateOf(Priority.MEDIUM) }
-    var selectedSubjectCode by remember { mutableStateOf(initialSubject?.code ?: "U25ADG01") }
-    var selectedSubjectName by remember { mutableStateOf(initialSubject?.name ?: "Digital Principles and Computer Org") }
+    var selectedSubjectCode by remember { mutableStateOf(initialSubjectCode ?: "U25ADG01") }
+    var selectedSubjectName by remember { mutableStateOf(initialSubjectName ?: "Digital Principles and Computer Org") }
 
     // Date & Time states with custom month & period support
     var selectedDate by remember { mutableStateOf(LocalDate.now(ZoneId.of("Asia/Kolkata")).plusDays(1)) }
@@ -1334,7 +1802,7 @@ fun AddAssignmentDialog(
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 // If added directly from subject card (+), show fixed subject info banner (no picker list)
-                if (initialSubject != null) {
+                if (initialSubjectCode != null) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
