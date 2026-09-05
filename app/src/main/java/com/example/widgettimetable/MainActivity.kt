@@ -247,10 +247,6 @@ fun MainAppScreen(
                         notificationsEnabled = notificationsEnabled,
                         onNotificationToggle = onNotificationToggle,
                         onAddWidgetClick = onAddWidgetClick,
-                        onResetTimetable = {
-                            timetableRepo.resetToDefaults()
-                            Toast.makeText(context, "Timetable reset to college defaults", Toast.LENGTH_SHORT).show()
-                        },
                         onTestNotification = {
                             val intent = Intent(context, AssignmentReminderReceiver::class.java).apply {
                                 action = AssignmentReminderReceiver.ACTION_REMIND_ASSIGNMENT
@@ -1403,7 +1399,6 @@ fun SettingsScreen(
     notificationsEnabled: Boolean,
     onNotificationToggle: (Boolean) -> Unit,
     onAddWidgetClick: () -> Unit,
-    onResetTimetable: () -> Unit,
     onTestNotification: () -> Unit,
     onCheckUpdateNow: () -> Unit
 ) {
@@ -1550,50 +1545,6 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Send Test Notification Alert", color = colorScheme.accentPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Timetable Management
-        Text(
-            text = "TIMETABLE DATA",
-            color = colorScheme.accentPrimary,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(18.dp))
-                .background(colorScheme.surface)
-                .border(1.dp, colorScheme.surfaceBorder, RoundedCornerShape(18.dp))
-                .padding(14.dp)
-        ) {
-            Text(
-                text = "Reset Timetable",
-                color = colorScheme.textPrimary,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = "Restore the default KPR college timetable schedule",
-                color = colorScheme.textSecondary,
-                fontSize = 11.sp
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Button(
-                onClick = onResetTimetable,
-                colors = ButtonDefaults.buttonColors(containerColor = colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Reset to College Defaults", color = Color(0xFFEF4444), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
         }
 

@@ -120,16 +120,17 @@
                 android:singleLine="true"
                 android:text="U25CSG18"
                 android:textColor="#FFFFFF"
-                android:textSize="14sp" />
+                android:textSize="16sp" />
 
             <TextView
                 android:id="@+id/widget_current_faculty"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:visibility="gone"
                 android:ellipsize="end"
                 android:fontFamily="sans-serif"
                 android:singleLine="true"
-                android:text="DBMS Lab • Ms. Sri Sakthi A"
+                android:text=""
                 android:textColor="#CBD5E1"
                 android:textSize="10sp" />
         </LinearLayout>

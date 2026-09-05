@@ -120,6 +120,14 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                 if (action == Intent.ACTION_BOOT_COMPLETED) {
                     AssignmentRepository(context).rescheduleAllReminders()
                 }
+                if (action == ACTION_UPDATE_TIMETABLE || action == Intent.ACTION_TIME_CHANGED) {
+                    val prefs = getPrefs(context)
+                    val editor = prefs.edit()
+                    for (id in appWidgetIds) {
+                        editor.remove("period_index_$id")
+                    }
+                    editor.apply()
+                }
                 for (id in appWidgetIds) {
                     updateAppWidget(context, appWidgetManager, id)
                 }
@@ -135,10 +143,17 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         val schedule = timetableRepo.getDaySchedule(dayStr)
         if (schedule.isEmpty()) return
 
-        val currentIndex = prefs.getInt("period_index_$appWidgetId", getLiveSlotIndex(schedule))
+        val zoneId = ZoneId.of("Asia/Kolkata")
+        val now = LocalTime.now(zoneId)
+        val isClassesFinished = !now.isBefore(schedule.last().endTime)
+        val defaultIdx = if (isClassesFinished) schedule.size else getLiveSlotIndex(schedule)
+
+        // totalSlots includes 0..(schedule.size-1) plus schedule.size ("No more classes")
+        val totalSlots = schedule.size + 1
+        val currentIndex = prefs.getInt("period_index_$appWidgetId", defaultIdx)
         var newIndex = currentIndex + delta
-        if (newIndex < 0) newIndex = schedule.size - 1
-        if (newIndex >= schedule.size) newIndex = 0
+        if (newIndex < 0) newIndex = totalSlots - 1
+        if (newIndex >= totalSlots) newIndex = 0
 
         prefs.edit().putInt("period_index_$appWidgetId", newIndex).apply()
     }
@@ -270,50 +285,53 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         views.setOnClickPendingIntent(R.id.widget_period_next_btn, nextPending)
 
         if (dayStr == "Sunday" || schedule.isEmpty()) {
-            views.setTextViewText(R.id.widget_current_period_meta, "No classes scheduled")
-            views.setTextViewText(R.id.widget_current_subject, if (dayStr == "Sunday") "Happy Sunday!" else "Free Day")
-            views.setTextViewText(R.id.widget_current_faculty, "Enjoy your day off")
+            views.setTextViewText(R.id.widget_current_period_meta, if (dayStr == "Sunday") "Sunday • Free Day" else "No Schedule")
+            views.setTextViewText(R.id.widget_current_subject, "No more classes")
+            views.setViewVisibility(R.id.widget_current_faculty, View.GONE)
             views.setViewVisibility(R.id.widget_live_badge, View.GONE)
-            views.setTextViewText(R.id.widget_next_period, "No upcoming classes")
+            views.setTextViewText(R.id.widget_next_period, "No more classes today")
             return
         }
 
-        val liveSlotIndex = getLiveSlotIndex(schedule)
-        val storedIndex = prefs.getInt("period_index_$appWidgetId", liveSlotIndex)
-        val selectedIndex = if (storedIndex in schedule.indices) storedIndex else liveSlotIndex
-        val item = schedule[selectedIndex]
+        val isClassesFinished = !now.isBefore(schedule.last().endTime)
+        val defaultIdx = if (isClassesFinished) schedule.size else getLiveSlotIndex(schedule)
+        val storedIndex = prefs.getInt("period_index_$appWidgetId", defaultIdx)
+        val selectedIndex = if (storedIndex in 0..schedule.size) storedIndex else defaultIdx
 
+        if (selectedIndex == schedule.size) {
+            views.setTextViewText(R.id.widget_current_period_meta, "$dayStr • All Done")
+            views.setTextViewText(R.id.widget_current_subject, "No more classes")
+            views.setViewVisibility(R.id.widget_current_faculty, View.GONE)
+            views.setViewVisibility(R.id.widget_live_badge, View.GONE)
+            views.setTextViewText(R.id.widget_next_period, "No more classes today")
+            return
+        }
+
+        val item = schedule[selectedIndex]
         val isLive = !now.isBefore(item.startTime) && now.isBefore(item.endTime)
         views.setViewVisibility(R.id.widget_live_badge, if (isLive) View.VISIBLE else View.GONE)
 
         val periodNum = selectedIndex + 1
-        views.setTextViewText(
-            R.id.widget_current_period_meta,
-            "Period $periodNum of ${schedule.size} • ${item.formattedTime}"
-        )
+        val timeMeta = if (item.isBreak) item.formattedTime else "Period $periodNum • ${item.formattedTime}"
+        views.setTextViewText(R.id.widget_current_period_meta, timeMeta)
 
-        if (item.isBreak) {
-            views.setTextViewText(R.id.widget_current_subject, item.slotName)
-            views.setTextViewText(R.id.widget_current_faculty, "Break Time")
-        } else {
-            val title = if (item.subjectCode.isNotEmpty()) item.subjectCode else item.slotName
-            views.setTextViewText(R.id.widget_current_subject, title)
-            val subDetails = buildString {
-                if (item.subjectName.isNotEmpty() && item.subjectName != item.subjectCode) {
-                    append(item.subjectName)
-                }
-                if (item.faculty.isNotEmpty()) {
-                    if (isNotEmpty()) append(" • ")
-                    append(item.faculty)
-                }
-            }
-            views.setTextViewText(R.id.widget_current_faculty, if (subDetails.isNotEmpty()) subDetails else "Free Period")
+        val periodName = when {
+            item.isBreak -> item.slotName
+            item.subjectCode.isNotEmpty() -> item.subjectCode
+            item.subjectName.isNotEmpty() -> item.subjectName
+            else -> item.slotName
         }
+        views.setTextViewText(R.id.widget_current_subject, periodName)
+        views.setViewVisibility(R.id.widget_current_faculty, View.GONE)
 
         // Bottom status / next class info
         val nextItem = schedule.firstOrNull { it.startTime.isAfter(now) }
         if (nextItem != null) {
-            val nextName = if (nextItem.isBreak) nextItem.slotName else if (nextItem.subjectCode.isNotEmpty()) nextItem.subjectCode else nextItem.subjectName
+            val nextName = when {
+                nextItem.isBreak -> nextItem.slotName
+                nextItem.subjectCode.isNotEmpty() -> nextItem.subjectCode
+                else -> nextItem.subjectName
+            }
             views.setTextViewText(R.id.widget_next_period, "Next: $nextName (${nextItem.startTime.format(TIME_FORMATTER_12H)})")
         } else {
             views.setTextViewText(R.id.widget_next_period, "No more classes today")
@@ -362,14 +380,18 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         views.setOnClickPendingIntent(R.id.widget_task_next_btn, nextPending)
 
         if (pending.isEmpty()) {
-            views.setTextViewText(R.id.widget_task_meta, "All Caught Up")
+            views.setTextViewText(R.id.widget_task_meta, "")
             views.setTextViewText(R.id.widget_task_title, "No pending assignments")
-            views.setTextViewText(R.id.widget_task_due, "Great job! Tap to add new tasks")
+            views.setTextViewText(R.id.widget_task_due, "")
+            views.setViewVisibility(R.id.widget_task_meta, View.GONE)
+            views.setViewVisibility(R.id.widget_task_due, View.GONE)
             views.setViewVisibility(R.id.widget_task_complete_btn, View.GONE)
             views.setTextViewText(R.id.widget_next_period, "Tap ▲ Timetable to return")
             return
         }
 
+        views.setViewVisibility(R.id.widget_task_meta, View.VISIBLE)
+        views.setViewVisibility(R.id.widget_task_due, View.VISIBLE)
         views.setViewVisibility(R.id.widget_task_complete_btn, View.VISIBLE)
         val storedIndex = prefs.getInt("task_index_$appWidgetId", 0)
         val selectedIndex = if (storedIndex in pending.indices) storedIndex else 0

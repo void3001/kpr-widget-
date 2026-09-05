@@ -24,18 +24,17 @@ data class RemoteUpdateInfo(
 )
 
 object UpdateManager {
-    const val CURRENT_VERSION_NAME = "v1.3"
-    const val CURRENT_VERSION_CODE = 4
+    const val CURRENT_VERSION_NAME = "v1.4"
+    const val CURRENT_VERSION_CODE = 5
 
     const val UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/void3001/kpr-widget-/main/version.json"
 
     val FALLBACK_CHANGELOG = listOf(
-        "- Customizable Timetable: Add, edit, delete & reorder periods",
-        "- Interactive Widget: Left/Right arrows to browse all periods",
-        "- Widget Task View: Browse pending tasks with 1-tap complete dot",
-        "- Fast real-time widget sync with 15-minute fallback",
-        "- High-priority notification alerts with sound and vibration",
-        "- Test notification alert button in Settings"
+        "- Reliable notification alerts with guaranteed sound and vibration",
+        "- Clean widget view showing period names directly (e.g. MH, ACTIVITY)",
+        "- Automatic 'No more classes' state on widget with day-locked navigation",
+        "- Minimalist pending tasks widget view showing only pending assignments",
+        "- Removed reset timetable section from settings"
     )
 
     suspend fun checkRemoteUpdate(): Result<RemoteUpdateInfo?> = withContext(Dispatchers.IO) {

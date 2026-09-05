@@ -1,15 +1,14 @@
 {
-  "versionCode": 4,
-  "versionName": "1.3",
+  "versionCode": 5,
+  "versionName": "1.4",
   "minSupportedVersionCode": 1,
   "apkUrl": "https://raw.githubusercontent.com/void3001/kpr-widget-/main/widget_timetable_app.apk",
   "releaseDate": "2026-09-05",
   "changelog": [
-    "- Customizable Timetable: Add, edit, delete & reorder periods",
-    "- Interactive Widget: Left/Right arrows to browse all periods",
-    "- Widget Task View: Browse pending tasks with 1-tap complete dot",
-    "- Fast real-time widget sync with 15-minute fallback",
-    "- High-priority notification alerts with sound and vibration",
-    "- Test notification alert button in Settings"
+    "- Reliable notification alerts with guaranteed sound and vibration",
+    "- Clean widget view showing period names directly (e.g. MH, ACTIVITY)",
+    "- Automatic 'No more classes' state on widget with day-locked navigation",
+    "- Minimalist pending tasks widget view showing only pending assignments",
+    "- Removed reset timetable section from settings"
   ]
 }
