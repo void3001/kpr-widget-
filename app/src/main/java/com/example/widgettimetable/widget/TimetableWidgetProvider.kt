@@ -257,7 +257,9 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         views.setViewVisibility(R.id.widget_timetable_container, View.VISIBLE)
         views.setViewVisibility(R.id.widget_tasks_container, View.GONE)
         views.setTextViewText(R.id.widget_mode_toggle_btn, "▼ Tasks")
-        views.setTextViewText(R.id.widget_header_title, "$dayStr • $currentTimeFormatted")
+        views.setTextViewText(R.id.widget_header_title, dayStr)
+        views.setViewVisibility(R.id.widget_current_period_meta, View.GONE)
+        views.setViewVisibility(R.id.widget_next_period, View.GONE)
 
         // Period navigation buttons
         val prevIntent = Intent(context, TimetableWidgetProvider::class.java).apply {
@@ -285,11 +287,10 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         views.setOnClickPendingIntent(R.id.widget_period_next_btn, nextPending)
 
         if (dayStr == "Sunday" || schedule.isEmpty()) {
-            views.setTextViewText(R.id.widget_current_period_meta, if (dayStr == "Sunday") "Sunday • Free Day" else "No Schedule")
             views.setTextViewText(R.id.widget_current_subject, "No more classes")
             views.setViewVisibility(R.id.widget_current_faculty, View.GONE)
             views.setViewVisibility(R.id.widget_live_badge, View.GONE)
-            views.setTextViewText(R.id.widget_next_period, "No more classes today")
+            views.setViewVisibility(R.id.widget_next_period, View.GONE)
             return
         }
 
@@ -299,21 +300,16 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         val selectedIndex = if (storedIndex in 0..schedule.size) storedIndex else defaultIdx
 
         if (selectedIndex == schedule.size) {
-            views.setTextViewText(R.id.widget_current_period_meta, "$dayStr • All Done")
             views.setTextViewText(R.id.widget_current_subject, "No more classes")
             views.setViewVisibility(R.id.widget_current_faculty, View.GONE)
             views.setViewVisibility(R.id.widget_live_badge, View.GONE)
-            views.setTextViewText(R.id.widget_next_period, "No more classes today")
+            views.setViewVisibility(R.id.widget_next_period, View.GONE)
             return
         }
 
         val item = schedule[selectedIndex]
         val isLive = !now.isBefore(item.startTime) && now.isBefore(item.endTime)
         views.setViewVisibility(R.id.widget_live_badge, if (isLive) View.VISIBLE else View.GONE)
-
-        val periodNum = selectedIndex + 1
-        val timeMeta = if (item.isBreak) item.formattedTime else "Period $periodNum • ${item.formattedTime}"
-        views.setTextViewText(R.id.widget_current_period_meta, timeMeta)
 
         val periodName = when {
             item.isBreak -> item.slotName
@@ -323,19 +319,7 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         }
         views.setTextViewText(R.id.widget_current_subject, periodName)
         views.setViewVisibility(R.id.widget_current_faculty, View.GONE)
-
-        // Bottom status / next class info
-        val nextItem = schedule.firstOrNull { it.startTime.isAfter(now) }
-        if (nextItem != null) {
-            val nextName = when {
-                nextItem.isBreak -> nextItem.slotName
-                nextItem.subjectCode.isNotEmpty() -> nextItem.subjectCode
-                else -> nextItem.subjectName
-            }
-            views.setTextViewText(R.id.widget_next_period, "Next: $nextName (${nextItem.startTime.format(TIME_FORMATTER_12H)})")
-        } else {
-            views.setTextViewText(R.id.widget_next_period, "No more classes today")
-        }
+        views.setViewVisibility(R.id.widget_next_period, View.GONE)
     }
 
     private fun renderTasksMode(
@@ -353,6 +337,7 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         views.setTextViewText(R.id.widget_mode_toggle_btn, "▲ Timetable")
         views.setTextViewText(R.id.widget_header_title, "Pending Tasks (${pending.size})")
         views.setViewVisibility(R.id.widget_live_badge, View.GONE)
+        views.setViewVisibility(R.id.widget_next_period, View.GONE)
 
         // Task navigation buttons
         val prevIntent = Intent(context, TimetableWidgetProvider::class.java).apply {
@@ -386,25 +371,23 @@ class TimetableWidgetProvider : AppWidgetProvider() {
             views.setViewVisibility(R.id.widget_task_meta, View.GONE)
             views.setViewVisibility(R.id.widget_task_due, View.GONE)
             views.setViewVisibility(R.id.widget_task_complete_btn, View.GONE)
-            views.setTextViewText(R.id.widget_next_period, "Tap ▲ Timetable to return")
+            views.setViewVisibility(R.id.widget_next_period, View.GONE)
             return
         }
 
         views.setViewVisibility(R.id.widget_task_meta, View.VISIBLE)
         views.setViewVisibility(R.id.widget_task_due, View.VISIBLE)
         views.setViewVisibility(R.id.widget_task_complete_btn, View.VISIBLE)
+        views.setViewVisibility(R.id.widget_next_period, View.GONE)
+
         val storedIndex = prefs.getInt("task_index_$appWidgetId", 0)
         val selectedIndex = if (storedIndex in pending.indices) storedIndex else 0
         val task = pending[selectedIndex]
 
-        val priorityStr = when (task.priority) {
-            Priority.HIGH -> "High Priority"
-            Priority.MEDIUM -> "Medium Priority"
-            Priority.LOW -> "Low Priority"
-        }
+        val prio = task.priority.name.lowercase()
         views.setTextViewText(
             R.id.widget_task_meta,
-            "Task ${selectedIndex + 1} of ${pending.size} • $priorityStr"
+            "task ${selectedIndex + 1} - $prio"
         )
 
         val titleWithSubject = if (task.subjectCode.isNotEmpty()) "[${task.subjectCode}] ${task.title}" else task.title
@@ -428,8 +411,6 @@ class TimetableWidgetProvider : AppWidgetProvider() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE else PendingIntent.FLAG_UPDATE_CURRENT
         )
         views.setOnClickPendingIntent(R.id.widget_task_complete_btn, completePending)
-
-        views.setTextViewText(R.id.widget_next_period, "Tap ✓ to complete • Tap ▲ Timetable to return")
     }
 
     private fun scheduleNextUpdate(context: Context) {

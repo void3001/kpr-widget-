@@ -247,19 +247,6 @@ fun MainAppScreen(
                         notificationsEnabled = notificationsEnabled,
                         onNotificationToggle = onNotificationToggle,
                         onAddWidgetClick = onAddWidgetClick,
-                        onTestNotification = {
-                            val intent = Intent(context, AssignmentReminderReceiver::class.java).apply {
-                                action = AssignmentReminderReceiver.ACTION_REMIND_ASSIGNMENT
-                                putExtra("title", "Test Assignment Reminder")
-                                putExtra("subject_code", "U25CSG18")
-                                putExtra("subject_name", "DBMS Lab")
-                                putExtra("priority", "HIGH")
-                                putExtra("assignment_id", "test_reminder_id")
-                                putExtra("is_advance", false)
-                            }
-                            context.sendBroadcast(intent)
-                            Toast.makeText(context, "Test notification alert dispatched!", Toast.LENGTH_SHORT).show()
-                        },
                         onCheckUpdateNow = {
                             coroutineScope.launch {
                                 Toast.makeText(context, "Checking for latest updates...", Toast.LENGTH_SHORT).show()
@@ -789,8 +776,13 @@ fun PeriodCard(
 
             // Time & Slot Name Column
             Column(modifier = Modifier.width(105.dp)) {
+                val leftLabel = when {
+                    item.isBreak -> "Break"
+                    item.slotName.contains("Mentor", ignoreCase = true) || item.subjectCode.equals("MH", ignoreCase = true) -> "Morning"
+                    else -> item.slotName
+                }
                 Text(
-                    text = item.slotName,
+                    text = leftLabel,
                     color = colorScheme.textMuted,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium
@@ -823,32 +815,22 @@ fun PeriodCard(
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold
                     )
-                    Text(
-                        text = "Break",
-                        color = colorScheme.textMuted,
-                        fontSize = 12.sp
-                    )
                 } else if (item.subjectCode.isNotEmpty() || item.subjectName.isNotEmpty()) {
+                    val mainTitle = if (item.subjectCode.isNotEmpty()) item.subjectCode else item.subjectName
                     Text(
-                        text = if (item.subjectCode.isNotEmpty()) item.subjectCode else item.subjectName,
+                        text = mainTitle,
                         color = colorScheme.textPrimary,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
-                    if (item.subjectName.isNotEmpty() && item.subjectName != item.subjectCode) {
+                    if (item.subjectName.isNotEmpty() &&
+                        !item.subjectName.equals(mainTitle, ignoreCase = true) &&
+                        !item.subjectName.equals(item.slotName, ignoreCase = true)
+                    ) {
                         Text(
                             text = item.subjectName,
                             color = colorScheme.textSecondary,
                             fontSize = 12.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    if (item.faculty.isNotEmpty()) {
-                        Text(
-                            text = item.faculty,
-                            color = colorScheme.textSecondary,
-                            fontSize = 11.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -924,7 +906,6 @@ fun EditPeriodDialog(
     var isBreak by remember { mutableStateOf(existingItem?.isBreak ?: false) }
     var subjectCode by remember { mutableStateOf(existingItem?.subjectCode ?: "") }
     var subjectName by remember { mutableStateOf(existingItem?.subjectName ?: "") }
-    var faculty by remember { mutableStateOf(existingItem?.faculty ?: "") }
 
     val timeFormatter = DateTimeFormatter.ofPattern("h:mm a")
 
@@ -941,7 +922,7 @@ fun EditPeriodDialog(
                         isBreak = isBreak,
                         subjectCode = subjectCode.trim(),
                         subjectName = subjectName.trim(),
-                        faculty = faculty.trim()
+                        faculty = ""
                     )
                     onSave(finalItem)
                 },
@@ -1071,21 +1052,6 @@ fun EditPeriodDialog(
                         value = subjectName,
                         onValueChange = { subjectName = it },
                         label = { Text("Subject Name (e.g. DBMS Lab)") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = colorScheme.textPrimary,
-                            unfocusedTextColor = colorScheme.textPrimary,
-                            focusedBorderColor = colorScheme.accentPrimary,
-                            unfocusedBorderColor = colorScheme.surfaceBorder
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    // Faculty Name
-                    OutlinedTextField(
-                        value = faculty,
-                        onValueChange = { faculty = it },
-                        label = { Text("Faculty / Instructor Name") },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = colorScheme.textPrimary,
@@ -1399,7 +1365,6 @@ fun SettingsScreen(
     notificationsEnabled: Boolean,
     onNotificationToggle: (Boolean) -> Unit,
     onAddWidgetClick: () -> Unit,
-    onTestNotification: () -> Unit,
     onCheckUpdateNow: () -> Unit
 ) {
     var showChangelogDialog by remember { mutableStateOf(false) }
@@ -1533,18 +1498,6 @@ fun SettingsScreen(
                         uncheckedTrackColor = colorScheme.surfaceVariant
                     )
                 )
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Test Notification Alert Button
-            Button(
-                onClick = onTestNotification,
-                colors = ButtonDefaults.buttonColors(containerColor = colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Send Test Notification Alert", color = colorScheme.accentPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
         }
 

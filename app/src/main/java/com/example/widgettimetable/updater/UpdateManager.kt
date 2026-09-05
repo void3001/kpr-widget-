@@ -24,17 +24,17 @@ data class RemoteUpdateInfo(
 )
 
 object UpdateManager {
-    const val CURRENT_VERSION_NAME = "v1.4"
-    const val CURRENT_VERSION_CODE = 5
+    const val CURRENT_VERSION_NAME = "v1.5"
+    const val CURRENT_VERSION_CODE = 6
 
     const val UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/void3001/kpr-widget-/main/version.json"
 
     val FALLBACK_CHANGELOG = listOf(
-        "- Reliable notification alerts with guaranteed sound and vibration",
-        "- Clean widget view showing period names directly (e.g. MH, ACTIVITY)",
-        "- Automatic 'No more classes' state on widget with day-locked navigation",
-        "- Minimalist pending tasks widget view showing only pending assignments",
-        "- Removed reset timetable section from settings"
+        "- Removed top time section and bottom gray status from widget",
+        "- Fixed MH and Lunch Break duplicate text on both sides",
+        "- Removed teacher names from timetable, edit section, and widget",
+        "- White task counter 'task X - medium' with clean spacing and no truncation",
+        "- Removed test notification button from settings"
     )
 
     suspend fun checkRemoteUpdate(): Result<RemoteUpdateInfo?> = withContext(Dispatchers.IO) {

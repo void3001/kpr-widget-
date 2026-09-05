@@ -1,14 +1,14 @@
 {
-  "versionCode": 5,
-  "versionName": "1.4",
+  "versionCode": 6,
+  "versionName": "1.5",
   "minSupportedVersionCode": 1,
   "apkUrl": "https://raw.githubusercontent.com/void3001/kpr-widget-/main/widget_timetable_app.apk",
   "releaseDate": "2026-09-05",
   "changelog": [
-    "- Reliable notification alerts with guaranteed sound and vibration",
-    "- Clean widget view showing period names directly (e.g. MH, ACTIVITY)",
-    "- Automatic 'No more classes' state on widget with day-locked navigation",
-    "- Minimalist pending tasks widget view showing only pending assignments",
-    "- Removed reset timetable section from settings"
+    "- Removed top time section and bottom gray status from widget",
+    "- Fixed MH and Lunch Break duplicate text on both sides",
+    "- Removed teacher names from timetable, edit section, and widget",
+    "- White task counter 'task X - medium' with clean spacing and no truncation",
+    "- Removed test notification button from settings"
   ]
 }
