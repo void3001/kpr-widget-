@@ -26,7 +26,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -590,10 +592,21 @@ fun TimetableScreen(
             }
         }
 
-        // Day Selector Pills
+        val dayListState = rememberLazyListState()
+
+        LaunchedEffect(selectedDay) {
+            val targetIdx = days.indexOf(selectedDay)
+            if (targetIdx >= 0) {
+                dayListState.animateScrollToItem(targetIdx)
+            }
+        }
+
+        // Day Selector Pills (Auto-scrolled & fully visible)
         LazyRow(
+            state = dayListState,
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(horizontal = 4.dp)
         ) {
             items(days.size) { index ->
                 val day = days[index]
@@ -657,9 +670,9 @@ fun TimetableScreen(
             }
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().weight(1f),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(bottom = 16.dp)
+                contentPadding = PaddingValues(top = 10.dp, bottom = 24.dp)
             ) {
                 itemsIndexed(daySchedule, key = { _, item -> item.id }) { index, item ->
                     val isCurrentSlot = currentSystemDay == selectedDay && item == currentActiveSlot
@@ -729,16 +742,25 @@ fun PeriodCard(
     onDeleteClick: () -> Unit,
     onAddAssignmentClick: () -> Unit
 ) {
+    val cardBg = when {
+        isActive -> colorScheme.activeCardBackground
+        item.isBreak -> Color(0x18F59E0B)
+        else -> colorScheme.surface
+    }
+    val cardBorder = when {
+        isActive -> colorScheme.activeCardBorder
+        item.isBreak -> Color(0x50F59E0B)
+        else -> colorScheme.surfaceBorder
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(
-                if (isActive) colorScheme.activeCardBackground else colorScheme.surface
-            )
+            .background(cardBg)
             .border(
                 width = if (isActive) 1.5.dp else 1.dp,
-                color = if (isActive) colorScheme.activeCardBorder else colorScheme.surfaceBorder,
+                color = cardBorder,
                 shape = RoundedCornerShape(16.dp)
             )
             .padding(14.dp)
@@ -783,7 +805,7 @@ fun PeriodCard(
                 }
                 Text(
                     text = leftLabel,
-                    color = colorScheme.textMuted,
+                    color = if (item.isBreak) Color(0xFFF59E0B) else colorScheme.textMuted,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium
                 )
@@ -801,7 +823,7 @@ fun PeriodCard(
                 modifier = Modifier
                     .width(1.dp)
                     .height(36.dp)
-                    .background(colorScheme.dividerColor)
+                    .background(if (item.isBreak) Color(0x40F59E0B) else colorScheme.dividerColor)
             )
 
             Spacer(modifier = Modifier.width(12.dp))
@@ -809,19 +831,37 @@ fun PeriodCard(
             // Subject Info Column
             Column(modifier = Modifier.weight(1f)) {
                 if (item.isBreak) {
-                    Text(
-                        text = item.slotName,
-                        color = colorScheme.textPrimary,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = item.slotName,
+                            color = colorScheme.textPrimary,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(0x33F59E0B))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "BREAK",
+                                color = Color(0xFFF59E0B),
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 } else if (item.subjectCode.isNotEmpty() || item.subjectName.isNotEmpty()) {
                     val mainTitle = if (item.subjectCode.isNotEmpty()) item.subjectCode else item.subjectName
                     Text(
                         text = mainTitle,
                         color = colorScheme.textPrimary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false
                     )
                     if (item.subjectName.isNotEmpty() &&
                         !item.subjectName.equals(mainTitle, ignoreCase = true) &&
@@ -831,8 +871,8 @@ fun PeriodCard(
                             text = item.subjectName,
                             color = colorScheme.textSecondary,
                             fontSize = 12.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            maxLines = 2,
+                            overflow = TextOverflow.Clip
                         )
                     }
                 } else {
@@ -856,18 +896,24 @@ fun PeriodCard(
                             .clip(RoundedCornerShape(8.dp))
                             .background(colorScheme.surfaceVariant)
                             .clickable { onEditClick() }
-                            .padding(horizontal = 8.dp, vertical = 5.dp)
+                            .padding(horizontal = 8.dp, vertical = 6.dp)
                     ) {
                         Text("Edit", color = colorScheme.accentPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0x33EF4444))
+                            .background(Color(0x28EF4444))
                             .clickable { onDeleteClick() }
-                            .padding(horizontal = 8.dp, vertical = 5.dp)
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text("Delete", color = Color(0xFFEF4444), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_trash),
+                            contentDescription = "Delete",
+                            tint = Color(0xFFEF4444),
+                            modifier = Modifier.size(15.dp)
+                        )
                     }
                 }
             } else {

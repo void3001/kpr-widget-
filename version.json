@@ -1,14 +1,17 @@
 {
-  "versionCode": 6,
-  "versionName": "1.5",
+  "versionCode": 7,
+  "versionName": "1.6",
   "minSupportedVersionCode": 1,
   "apkUrl": "https://raw.githubusercontent.com/void3001/kpr-widget-/main/widget_timetable_app.apk",
-  "releaseDate": "2026-09-05",
+  "releaseDate": "2026-09-06",
   "changelog": [
-    "- Removed top time section and bottom gray status from widget",
-    "- Fixed MH and Lunch Break duplicate text on both sides",
-    "- Removed teacher names from timetable, edit section, and widget",
-    "- White task counter 'task X - medium' with clean spacing and no truncation",
-    "- Removed test notification button from settings"
+    "- Widget period time display above each period (e.g. 8:55 AM - 9:50 AM)",
+    "- Full subject name in widget with no ellipsis truncation (no '....')",
+    "- Removed circles around widget navigation arrows",
+    "- Hidden task arrows when no tasks are available",
+    "- Fixed course code wrapping and truncated subject names",
+    "- Visual differentiation for breaks with warm amber tint and BREAK badge",
+    "- Trash can icon button for period deletion",
+    "- Fixed top card clipping and auto-scrolled day selector tabs"
   ]
 }

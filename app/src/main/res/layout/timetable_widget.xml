@@ -77,17 +77,16 @@
         android:orientation="horizontal"
         android:visibility="visible">
 
-        <!-- Previous Period Arrow Button -->
+        <!-- Previous Period Arrow Button (No circle around arrow) -->
         <TextView
             android:id="@+id/widget_period_prev_btn"
             android:layout_width="28dp"
             android:layout_height="36dp"
-            android:background="@drawable/widget_btn_bg"
             android:fontFamily="sans-serif-bold"
             android:gravity="center"
             android:text="‹"
             android:textColor="#FFFFFF"
-            android:textSize="20sp" />
+            android:textSize="22sp" />
 
         <!-- Period Details Column -->
         <LinearLayout
@@ -97,18 +96,17 @@
             android:layout_weight="1"
             android:gravity="center"
             android:orientation="vertical"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp">
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp">
 
             <TextView
                 android:id="@+id/widget_current_period_meta"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:visibility="gone"
-                android:ellipsize="end"
+                android:visibility="visible"
                 android:fontFamily="sans-serif-medium"
-                android:singleLine="true"
-                android:text=""
+                android:gravity="center"
+                android:text="8:55 AM - 9:50 AM"
                 android:textColor="#94A3B8"
                 android:textSize="10sp" />
 
@@ -116,37 +114,35 @@
                 android:id="@+id/widget_current_subject"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:ellipsize="end"
+                android:layout_marginTop="2dp"
+                android:gravity="center"
                 android:fontFamily="sans-serif-bold"
-                android:singleLine="true"
-                android:text="U25CSG18"
+                android:maxLines="2"
+                android:text="Database Management Systems"
                 android:textColor="#FFFFFF"
-                android:textSize="18sp" />
+                android:textSize="14sp" />
 
             <TextView
                 android:id="@+id/widget_current_faculty"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:visibility="gone"
-                android:ellipsize="end"
                 android:fontFamily="sans-serif"
-                android:singleLine="true"
                 android:text=""
                 android:textColor="#CBD5E1"
                 android:textSize="10sp" />
         </LinearLayout>
 
-        <!-- Next Period Arrow Button -->
+        <!-- Next Period Arrow Button (No circle around arrow) -->
         <TextView
             android:id="@+id/widget_period_next_btn"
             android:layout_width="28dp"
             android:layout_height="36dp"
-            android:background="@drawable/widget_btn_bg"
             android:fontFamily="sans-serif-bold"
             android:gravity="center"
             android:text="›"
             android:textColor="#FFFFFF"
-            android:textSize="20sp" />
+            android:textSize="22sp" />
     </LinearLayout>
 
     <!-- 2. TASKS / PENDING ASSIGNMENTS VIEW CONTAINER -->
@@ -159,17 +155,16 @@
         android:orientation="horizontal"
         android:visibility="gone">
 
-        <!-- Previous Task Arrow Button -->
+        <!-- Previous Task Arrow Button (No circle around arrow) -->
         <TextView
             android:id="@+id/widget_task_prev_btn"
             android:layout_width="28dp"
             android:layout_height="36dp"
-            android:background="@drawable/widget_btn_bg"
             android:fontFamily="sans-serif-bold"
             android:gravity="center"
             android:text="‹"
             android:textColor="#FFFFFF"
-            android:textSize="20sp" />
+            android:textSize="22sp" />
 
         <!-- Task Info Column -->
         <LinearLayout
@@ -179,16 +174,15 @@
             android:layout_weight="1"
             android:gravity="center"
             android:orientation="vertical"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp">
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp">
 
             <TextView
                 android:id="@+id/widget_task_meta"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:ellipsize="end"
                 android:fontFamily="sans-serif-medium"
-                android:singleLine="true"
+                android:gravity="center"
                 android:text="task 1 - medium"
                 android:textColor="#FFFFFF"
                 android:textSize="11sp" />
@@ -197,11 +191,11 @@
                 android:id="@+id/widget_task_title"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:layout_marginBottom="4dp"
-                android:ellipsize="end"
+                android:layout_marginTop="3dp"
+                android:layout_marginBottom="3dp"
+                android:gravity="center"
                 android:fontFamily="sans-serif-bold"
-                android:singleLine="true"
+                android:maxLines="2"
                 android:text="DBMS Lab Exercise 4"
                 android:textColor="#FFFFFF"
                 android:textSize="13sp" />
@@ -210,10 +204,8 @@
                 android:id="@+id/widget_task_due"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:ellipsize="end"
                 android:fontFamily="sans-serif"
-                android:singleLine="true"
+                android:gravity="center"
                 android:text="Due: Tomorrow, 5:00 PM"
                 android:textColor="#94A3B8"
                 android:textSize="10sp" />
@@ -232,17 +224,16 @@
             android:textColor="#10B981"
             android:textSize="12sp" />
 
-        <!-- Next Task Arrow Button -->
+        <!-- Next Task Arrow Button (No circle around arrow) -->
         <TextView
             android:id="@+id/widget_task_next_btn"
             android:layout_width="28dp"
             android:layout_height="36dp"
-            android:background="@drawable/widget_btn_bg"
             android:fontFamily="sans-serif-bold"
             android:gravity="center"
             android:text="›"
             android:textColor="#FFFFFF"
-            android:textSize="20sp" />
+            android:textSize="22sp" />
     </LinearLayout>
 
     <!-- Bottom Status / Next Class Indicator (Hidden per user request) -->

@@ -24,17 +24,20 @@ data class RemoteUpdateInfo(
 )
 
 object UpdateManager {
-    const val CURRENT_VERSION_NAME = "v1.5"
-    const val CURRENT_VERSION_CODE = 6
+    const val CURRENT_VERSION_NAME = "v1.6"
+    const val CURRENT_VERSION_CODE = 7
 
     const val UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/void3001/kpr-widget-/main/version.json"
 
     val FALLBACK_CHANGELOG = listOf(
-        "- Removed top time section and bottom gray status from widget",
-        "- Fixed MH and Lunch Break duplicate text on both sides",
-        "- Removed teacher names from timetable, edit section, and widget",
-        "- White task counter 'task X - medium' with clean spacing and no truncation",
-        "- Removed test notification button from settings"
+        "- Widget period time display above each period (e.g. 8:55 AM - 9:50 AM)",
+        "- Full subject name in widget with no ellipsis truncation (no '....')",
+        "- Removed circles around widget navigation arrows",
+        "- Hidden task arrows when no tasks are available",
+        "- Fixed course code wrapping and truncated subject names",
+        "- Visual differentiation for breaks with warm amber tint and BREAK badge",
+        "- Trash can icon button for period deletion",
+        "- Fixed top card clipping and auto-scrolled day selector tabs"
     )
 
     suspend fun checkRemoteUpdate(): Result<RemoteUpdateInfo?> = withContext(Dispatchers.IO) {

@@ -287,6 +287,7 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         views.setOnClickPendingIntent(R.id.widget_period_next_btn, nextPending)
 
         if (dayStr == "Sunday" || schedule.isEmpty()) {
+            views.setViewVisibility(R.id.widget_current_period_meta, View.GONE)
             views.setTextViewText(R.id.widget_current_subject, "No more classes")
             views.setViewVisibility(R.id.widget_current_faculty, View.GONE)
             views.setViewVisibility(R.id.widget_live_badge, View.GONE)
@@ -300,6 +301,7 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         val selectedIndex = if (storedIndex in 0..schedule.size) storedIndex else defaultIdx
 
         if (selectedIndex == schedule.size) {
+            views.setViewVisibility(R.id.widget_current_period_meta, View.GONE)
             views.setTextViewText(R.id.widget_current_subject, "No more classes")
             views.setViewVisibility(R.id.widget_current_faculty, View.GONE)
             views.setViewVisibility(R.id.widget_live_badge, View.GONE)
@@ -311,13 +313,19 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         val isLive = !now.isBefore(item.startTime) && now.isBefore(item.endTime)
         views.setViewVisibility(R.id.widget_live_badge, if (isLive) View.VISIBLE else View.GONE)
 
-        val periodName = when {
+        // Show period time above each period (e.g. 8:55 AM - 9:50 AM)
+        val periodTimeText = "${item.startTime.format(TIME_FORMATTER_12H)} - ${item.endTime.format(TIME_FORMATTER_12H)}"
+        views.setTextViewText(R.id.widget_current_period_meta, periodTimeText)
+        views.setViewVisibility(R.id.widget_current_period_meta, View.VISIBLE)
+
+        // Show subject name instead of subject code in widget
+        val displayName = when {
             item.isBreak -> item.slotName
-            item.subjectCode.isNotEmpty() -> item.subjectCode
             item.subjectName.isNotEmpty() -> item.subjectName
+            item.subjectCode.isNotEmpty() -> item.subjectCode
             else -> item.slotName
         }
-        views.setTextViewText(R.id.widget_current_subject, periodName)
+        views.setTextViewText(R.id.widget_current_subject, displayName)
         views.setViewVisibility(R.id.widget_current_faculty, View.GONE)
         views.setViewVisibility(R.id.widget_next_period, View.GONE)
     }
@@ -338,6 +346,11 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         views.setTextViewText(R.id.widget_header_title, "Pending Tasks (${pending.size})")
         views.setViewVisibility(R.id.widget_live_badge, View.GONE)
         views.setViewVisibility(R.id.widget_next_period, View.GONE)
+
+        // Hide task arrows if no tasks or only 1 task available
+        val showArrows = pending.size > 1
+        views.setViewVisibility(R.id.widget_task_prev_btn, if (showArrows) View.VISIBLE else View.GONE)
+        views.setViewVisibility(R.id.widget_task_next_btn, if (showArrows) View.VISIBLE else View.GONE)
 
         // Task navigation buttons
         val prevIntent = Intent(context, TimetableWidgetProvider::class.java).apply {
@@ -390,8 +403,7 @@ class TimetableWidgetProvider : AppWidgetProvider() {
             "task ${selectedIndex + 1} - $prio"
         )
 
-        val titleWithSubject = if (task.subjectCode.isNotEmpty()) "[${task.subjectCode}] ${task.title}" else task.title
-        views.setTextViewText(R.id.widget_task_title, titleWithSubject)
+        views.setTextViewText(R.id.widget_task_title, task.title)
 
         val dueDateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(task.dueDateEpochMillis), ZoneId.of("Asia/Kolkata"))
         val isOverdue = task.dueDateEpochMillis < System.currentTimeMillis()
